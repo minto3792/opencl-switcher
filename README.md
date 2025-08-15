@@ -1,0 +1,442 @@
+# Tools4every1
+Tools4every1 is an open-source collection of Linux Debian utilities featuring intuitive GUI interfaces built with Zenity and Bash. Designed to simplify terminal workflows for all users, these projects transform complex command-line tasks into accessible graphical tools—making Linux automation, administration, and development more approachable.
+#!/bin/bash
+# SPDX-License-Identifier: GNU 3.0
+# Copyright (c) 2025 minto3792
+# OpenCL Switcher GUI v1.0
+# Fixed GUI display after root authentication
+
+# Configuration
+VENDORS_DIR="/etc/OpenCL/vendors"
+DISABLED_DIR="$VENDORS_DIR/disabled"
+NVIDIA_ICD="nvidia.icd"
+AMD_ICD_PATTERN="amdocl64*.icd"
+MESA_ICD="mesa.icd"
+NOUVEAU_CONF="/etc/modprobe.d/blacklist-nouveau.conf"
+MODPROBE_DIR="/etc/modprobe.d"
+LOG_FILE="/tmp/opencl-switcher-gui.log"
+CONFIG_FILE="$HOME/.config/opencl-switcher.conf"
+VERSION="1.0"
+
+# Function to get status text with visual indicators
+get_status_text() {
+    get_status
+    
+    # Create visual indicators (● for enabled, ○ for disabled)
+    nv_indicator=$([ $nvidia_enabled -eq 1 ] && echo "●" || echo "○")
+    amd_indicator=$([ $amd_enabled -eq 1 ] && echo "●" || echo "○")
+    mesa_indicator=$([ $mesa_enabled -eq 1 ] && echo "●" || echo "○")
+    nouveau_indicator=$([ $nouveau_blacklisted -eq 1 ] && echo "●" || echo "○")
+    
+    # Color coding
+    nv_color=$([ $nvidia_enabled -eq 1 ] && echo "green" || echo "red")
+    amd_color=$([ $amd_enabled -eq 1 ] && echo "green" || echo "red")
+    mesa_color=$([ $mesa_enabled -eq 1 ] && echo "green" || echo "red")
+    nouveau_color=$([ $nouveau_blacklisted -eq 1 ] && echo "red" || echo "green")
+    
+    # Build status table
+    status_text="\n"
+    status_text+="<span weight='bold'>       DRIVER       STATUS  </span>\n"
+    status_text+="<span weight='bold'>──────────────────────────</span>\n"
+    status_text+="<span foreground='$nv_color'> $nv_indicator NVIDIA CUDA    </span> $(if [ $nvidia_enabled -eq 1 ]; then echo "<span foreground='green'>ENABLED </span>"; else echo "<span foreground='red'>DISABLED</span>"; fi)\n"
+    status_text+="<span foreground='$amd_color'> $amd_indicator AMD OpenCL    </span> $(if [ $amd_enabled -eq 1 ]; then echo "<span foreground='green'>ENABLED </span>"; else echo "<span foreground='red'>DISABLED</span>"; fi)\n"
+    status_text+="<span foreground='$mesa_color'> $mesa_indicator Mesa         </span> $(if [ $mesa_enabled -eq 1 ]; then echo "<span foreground='green'>ENABLED </span>"; else echo "<span foreground='red'>DISABLED</span>"; fi)\n"
+    status_text+="<span foreground='$nouveau_color'> $nouveau_indicator Nouveau      </span> $(if [ $nouveau_blacklisted -eq 1 ]; then echo "<span foreground='red'>BLOCKED </span>"; else echo "<span foreground='green'>ACTIVE  </span>"; fi)\n"
+    
+    echo "$status_text"
+}
+
+# Function to create footer with branding
+get_footer() {
+    echo "\n\n<span size='small' weight='light' style='italic'>"
+    echo "● = Active/Enabled  ○ = Inactive/Disabled"
+    echo "--------------------------------------------\n"
+    echo "<span weight='bold'>MENTOSA</span> - Dual GPU Setup Manager v$VERSION\n"
+    echo "Designed for NVIDIA/AMD hybrid systems"
+    echo "</span>"
+}
+
+# Security enhancement - Validate paths
+validate_paths() {
+    for path in "$VENDORS_DIR" "$MODPROBE_DIR"; do
+        if [[ ! -d "$path" ]]; then
+            zenity --error --text="Critical directory missing: $path" --width=400
+            exit 1
+        fi
+    done
+    
+    # Create disabled directory if missing
+    if [ ! -d "$DISABLED_DIR" ]; then
+        mkdir -p "$DISABLED_DIR"
+    fi
+}
+
+# Setup logging
+setup_logging() {
+    exec > >(tee -a "$LOG_FILE") 2>&1
+    echo "=== OpenCL Switcher v$VERSION $(date) ==="
+}
+
+# Improved prerequisite check
+setup_prerequisites() {
+    # Ensure disabled directory exists
+    if [ ! -d "$DISABLED_DIR" ]; then
+        mkdir -p "$DISABLED_DIR"
+    fi
+}
+
+# Enhanced Nouveau blacklisting with safety checks
+blacklist_nouveau() {
+    # Check for existing blacklist
+    if [ -f "$NOUVEAU_CONF" ] && grep -q "nouveau" "$NOUVEAU_CONF"; then
+        zenity --info --title="Already Configured" \
+               --text="Nouveau is already blacklisted in:\n$NOUVEAU_CONF" \
+               --width=350
+        return 0
+    fi
+
+    # Create configuration safely
+    {
+        echo "blacklist nouveau"
+        echo "options nouveau modeset=0"
+        echo "alias nouveau off"
+    } | tee "$NOUVEAU_CONF" >/dev/null
+
+    # Verify creation
+    if [ ! -f "$NOUVEAU_CONF" ]; then
+        zenity --error --text="Failed to create blacklist file!" --width=300
+        return 1
+    fi
+
+    # Update initramfs with error handling
+    if update-initramfs -u 2>&1 | grep -i "error"; then
+        zenity --error --text="Failed to update initramfs!\nCheck logs: $LOG_FILE" --width=400
+        return 1
+    fi
+
+    zenity --info --title="Success" --text="Nouveau driver blacklisted successfully." --width=300
+}
+
+# Improved status checking
+get_status() {
+    nvidia_enabled=0
+    amd_enabled=0
+    mesa_enabled=0
+    nouveau_blacklisted=0
+    
+    # Check NVIDIA status
+    [ -f "$VENDORS_DIR/$NVIDIA_ICD" ] && nvidia_enabled=1
+    
+    # Check AMD status
+    ls "$VENDORS_DIR"/$AMD_ICD_PATTERN >/dev/null 2>&1 && amd_enabled=1
+    
+    # Check Mesa status
+    [ -f "$VENDORS_DIR/$MESA_ICD" ] && mesa_enabled=1
+    
+    # Check Nouveau status
+    [ -f "$NOUVEAU_CONF" ] && grep -q "blacklist nouveau" "$NOUVEAU_CONF" && nouveau_blacklisted=1
+}
+
+# Driver switching with transaction safety
+switch_driver() {
+    src_dir="$1"
+    dest_dir="$2"
+    pattern="$3"
+    
+    # Create transaction directory
+    trans_dir=$(mktemp -d)
+    
+    # Move files atomically
+    if ! mv "${src_dir}/"${pattern} "$trans_dir" 2>/dev/null; then
+        zenity --warning --text="No ${pattern} files found in ${src_dir}" --width=300
+    fi
+    
+    mv "$trans_dir/"* "$dest_dir" 2>/dev/null
+    rmdir "$trans_dir"
+}
+
+# Unified enable function with safety
+enable_config() {
+    mode=$1
+    mkdir -p "$DISABLED_DIR"
+    
+    case $mode in
+        cuda)
+            switch_driver "$VENDORS_DIR" "$DISABLED_DIR" "$AMD_ICD_PATTERN"
+            switch_driver "$VENDORS_DIR" "$DISABLED_DIR" "$MESA_ICD"
+            switch_driver "$DISABLED_DIR" "$VENDORS_DIR" "$NVIDIA_ICD"
+            ;;
+        amd)
+            switch_driver "$VENDORS_DIR" "$DISABLED_DIR" "$NVIDIA_ICD"
+            switch_driver "$DISABLED_DIR" "$VENDORS_DIR" "$AMD_ICD_PATTERN"
+            switch_driver "$DISABLED_DIR" "$VENDORS_DIR" "$MESA_ICD"
+            ;;
+        both)
+            switch_driver "$DISABLED_DIR" "$VENDORS_DIR" "$AMD_ICD_PATTERN"
+            switch_driver "$DISABLED_DIR" "$VENDORS_DIR" "$MESA_ICD"
+            switch_driver "$DISABLED_DIR" "$VENDORS_DIR" "$NVIDIA_ICD"
+            ;;
+    esac
+}
+
+# Enhanced reboot dialog
+show_reboot_dialog() {
+    zenity --question --title="Reboot Required" \
+           --text="A system reboot is required for changes to take effect.\n\nReboot now?" \
+           --width=350 --ok-label="Reboot" --cancel-label="Later"
+    
+    [ $? -eq 0 ] && systemctl reboot
+}
+
+# Save user preferences
+save_preferences() {
+    [ -d "$(dirname "$CONFIG_FILE")" ] || mkdir -p "$(dirname "$CONFIG_FILE")"
+    echo "LAST_MODE=$1" > "$CONFIG_FILE"
+}
+
+# Load user preferences
+load_preferences() {
+    [ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
+    echo "${LAST_MODE:-none}"
+}
+
+# System information dialog
+show_system_info() {
+    # GPU information
+    gpu_info=$(lspci | grep -i 'vga\|3d' | sed 's/.*: //' 2>/dev/null)
+    
+    # Driver versions
+    nv_driver=$(modinfo nvidia 2>/dev/null | grep '^version:' | awk '{print $2}')
+    amd_driver=$(modinfo amdgpu 2>/dev/null | grep '^version:' | awk '{print $2}')
+    
+    zenity --info --title="System Information" \
+        --text="<b>GPU Devices:</b>\n${gpu_info:-Not detected}\n\n<b>Driver Versions:</b>\n- NVIDIA: ${nv_driver:-Not loaded}\n- AMD: ${amd_driver:-Not loaded}\n\n<b>Log File:</b> $LOG_FILE" \
+        --width=500
+}
+
+# Whitelist Nouveau driver
+whitelist_nouveau() {
+    # Remove blacklist files
+    for conf_file in "$MODPROBE_DIR"/*; do
+        if grep -q "nouveau" "$conf_file"; then
+            rm -f "$conf_file"
+        fi
+    done
+    
+    # Update initramfs
+    update-initramfs -u
+    zenity --info --title="Success" --text="Nouveau driver whitelisted successfully." --width=300
+}
+
+# Main GUI function
+show_gui() {
+    # Load saved preferences
+    last_mode=$(load_preferences)
+    
+    while true; do
+        # Show main dialog
+        choice=$(zenity --list \
+            --title="OpenCL & Nouveau Manager v$VERSION" \
+            --text="<b>Current Status:</b>\n$(get_status_text)\n\nLast applied mode: ${last_mode^^}" \
+            --width=700 --height=500 \
+            --column="Option" --column="Description" \
+            "OPENCL_CUDA" "Enable NVIDIA CUDA only (Recommended for DaVinci Resolve)" \
+            "OPENCL_AMD" "Enable AMD/Mesa only (Recommended for Gaming)" \
+            "OPENCL_BOTH" "Enable both NVIDIA and AMD/Mesa" \
+            "NOUVEAU_BLACKLIST" "Blacklist Nouveau driver (Required for NVIDIA)" \
+            "NOUVEAU_WHITELIST" "Whitelist Nouveau driver (For debugging)" \
+            "INFO" "Show system configuration details" \
+            "REBOOT" "Reboot system to apply changes" \
+            "EXIT" "Close the application" \
+            --hide-header \
+            --ok-label="Select" \
+            --cancel-label="Quit")
+        
+        # If user cancels or closes window
+        if [ $? -ne 0 ]; then
+            exit 0
+        fi
+        
+        case "$choice" in
+            OPENCL_CUDA)
+                enable_config cuda
+                save_preferences cuda
+                last_mode=cuda
+                zenity --info --title="Success" --text="NVIDIA CUDA enabled\nAMD/Mesa disabled" --width=300
+                ;;
+            OPENCL_AMD)
+                enable_config amd
+                save_preferences amd
+                last_mode=amd
+                zenity --info --title="Success" --text="AMD/Mesa enabled\nNVIDIA CUDA disabled" --width=300
+                ;;
+            OPENCL_BOTH)
+                enable_config both
+                save_preferences both
+                last_mode=both
+                zenity --info --title="Success" --text="Both NVIDIA CUDA and AMD/Mesa enabled" --width=300
+                ;;
+            NOUVEAU_BLACKLIST)
+                blacklist_nouveau
+                show_reboot_dialog
+                ;;
+            NOUVEAU_WHITELIST)
+                whitelist_nouveau
+                show_reboot_dialog
+                ;;
+            INFO)
+                show_system_info
+                ;;
+            REBOOT)
+                show_reboot_dialog
+                ;;
+            EXIT)
+                exit 0
+                ;;
+        esac
+    done
+}
+
+# Check if Zenity is installed
+if ! command -v zenity &> /dev/null; then
+    echo "Zenity is required but not installed. Please install it with:"
+    echo "  sudo apt install zenity"
+    exit 1
+fi
+
+# Check if running with GUI display
+if [ -z "$DISPLAY" ]; then
+    echo "This script requires a GUI environment. Please run from a desktop session."
+    exit 1
+fi
+
+# Privilege escalation handling
+if [ "$(id -u)" -ne 0 ]; then
+    # Try graphical authentication first
+    if command -v pkexec &> /dev/null; then
+        pkexec env DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" "$0"
+    else
+        # Fallback to terminal sudo
+        sudo -E env DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" "$0"
+    fi
+    exit $?
+fi
+
+# Function to apply DaVinci Resolve fix
+apply_davinci_fix() {
+    RESOLVE_LIBS_DIR="/opt/resolve/libs"
+    
+    # Check if Resolve is installed
+    if [ ! -d "$RESOLVE_LIBS_DIR" ]; then
+        zenity --error --title="Error" \
+               --text="DaVinci Resolve installation not found.\nPlease ensure it's installed at /opt/resolve" \
+               --width=400
+        return 1
+    fi
+    
+    # Create oldlibs directory if it doesn't exist
+    if [ ! -d "$RESOLVE_LIBS_DIR/oldlibs" ]; then
+        mkdir -p "$RESOLVE_LIBS_DIR/oldlibs"
+    fi
+    
+    # Move libraries to oldlibs
+    moved_files=""
+    for lib in libglib libgio libgmodule libgobject; do
+        for file in "$RESOLVE_LIBS_DIR/$lib"*; do
+            if [ -f "$file" ]; then
+                mv "$file" "$RESOLVE_LIBS_DIR/oldlibs/"
+                moved_files+="\n- $(basename "$file")"
+            fi
+        done
+    done
+    
+    if [ -z "$moved_files" ]; then
+        zenity --info --title="No Action Taken" \
+               --text="No DaVinci Resolve libraries needed to be moved.\nThe fix might already be applied." \
+               --width=400
+    else
+        zenity --info --title="Success" \
+               --text="DaVinci Resolve fix applied successfully.\nMoved files:$moved_files\n\nRestart DaVinci Resolve to apply changes." \
+               --width=500
+    fi
+}
+
+# Main GUI function
+show_gui() {
+    # Load saved preferences
+    last_mode=$(load_preferences)
+    
+    while true; do
+        # Show main dialog
+        choice=$(zenity --list \
+            --title="OpenCL & Nouveau Manager v$VERSION" \
+            --text="<b>Current Status:</b>\n$(get_status_text)\n\nLast applied mode: ${last_mode^^}" \
+            --width=700 --height=500 \
+            --column="Option" --column="Description" \
+            "OPENCL_CUDA" "Enable NVIDIA CUDA only (Recommended for DaVinci Resolve)" \
+            "OPENCL_AMD" "Enable AMD/Mesa only (Recommended for Gaming)" \
+            "OPENCL_BOTH" "Enable both NVIDIA and AMD/Mesa" \
+            "NOUVEAU_BLACKLIST" "Blacklist Nouveau driver (Required for NVIDIA)" \
+            "NOUVEAU_WHITELIST" "Whitelist Nouveau driver (For debugging)" \
+            "DAVINCI_FIX" "Apply DaVinci Resolve library fix (GLib)" \
+            "INFO" "Show system configuration details" \
+            "REBOOT" "Reboot system to apply changes" \
+            "EXIT" "Close the application" \
+            --hide-header \
+            --ok-label="Select" \
+            --cancel-label="Quit")
+        
+        # If user cancels or closes window
+        if [ $? -ne 0 ]; then
+            exit 0
+        fi
+        
+        case "$choice" in
+            OPENCL_CUDA)
+                enable_config cuda
+                save_preferences cuda
+                last_mode=cuda
+                zenity --info --title="Success" --text="NVIDIA CUDA enabled\nAMD/Mesa disabled" --width=300
+                ;;
+            OPENCL_AMD)
+                enable_config amd
+                save_preferences amd
+                last_mode=amd
+                zenity --info --title="Success" --text="AMD/Mesa enabled\nNVIDIA CUDA disabled" --width=300
+                ;;
+            OPENCL_BOTH)
+                enable_config both
+                save_preferences both
+                last_mode=both
+                zenity --info --title="Success" --text="Both NVIDIA CUDA and AMD/Mesa enabled" --width=300
+                ;;
+            NOUVEAU_BLACKLIST)
+                blacklist_nouveau
+                show_reboot_dialog
+                ;;
+            NOUVEAU_WHITELIST)
+                whitelist_nouveau
+                show_reboot_dialog
+                ;;
+            DAVINCI_FIX)
+                apply_davinci_fix
+                ;;
+            INFO)
+                show_system_info
+                ;;
+            REBOOT)
+                show_reboot_dialog
+                ;;
+            EXIT)
+                exit 0
+                ;;
+        esac
+    done
+}
+
+
+# Now running as root - start the application
+validate_paths
+setup_logging
+setup_prerequisites
+show_gui
