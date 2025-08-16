@@ -53,7 +53,7 @@ sudo apt install nvtop pciutils kmod policykit-1
 ## 📂 Installation
 
 ```bash
-curl -O https://raw.githubusercontent.com/yourusername/opencl-switcher/main/opencl-switcher.sh
+curl -O https://github.com/minto3792/opencl-switcher/blob/main/script/opencl-switcher.sh
 chmod +x opencl-switcher.sh
 sudo mv opencl-switcher.sh /usr/local/bin/opencl-switcher
 ```
