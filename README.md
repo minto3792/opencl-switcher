@@ -124,8 +124,6 @@ What it does:
 
 ![DaVinci Fix Screenshot](screenshots/davinci-fix.png)
 
-👉 *Tip: Create a `screenshots/` folder in your repo and save actual PNG screenshots there using `gnome-screenshot`, `spectacle`, or `flameshot`.*
-
 ---
 
 ## 🧑‍💻 Development Notes
