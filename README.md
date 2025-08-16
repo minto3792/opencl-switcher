@@ -114,7 +114,7 @@ What it does:
 
 ### Main Menu
 
-![Main Menu Screenshot](screenshots/main-menu.png)
+![Main Menu Screenshot](https://github.com/minto3792/opencl-switcher/blob/f7b28e8b491b6623e08a858ab7c3c8505ca09b34/opencswitchgui.jpg)
 
 ### Info Window (GPU & Driver Details)
 
