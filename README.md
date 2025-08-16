@@ -167,6 +167,3 @@ This is a **community tool**. No official vendor support. For issues:
 * Check `/tmp/opencl-switcher-gui.log`.
 * Open a GitHub issue with details.
 
----
-
-👉 Do you also want me to add **links to community forums** (like Reddit’s r/linux, r/davinciresolve, or Phoronix forums) in the README under *Support* so users have more places to ask questions?
