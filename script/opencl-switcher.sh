@@ -261,6 +261,46 @@ show_system_info() {
         --width=560
 }
 
+# ----------------------- nvtop Integration -------------------
+run_nvtop() {
+    # Check if nvtop is installed
+    if ! command -v nvtop >/dev/null 2>&1; then
+        zenity --error --text="nvtop is not installed.\n\nPlease install it using your package manager:\n\n• Debian/Ubuntu: sudo apt install nvtop\n• Fedora: sudo dnf install nvtop\n• Arch: sudo pacman -S nvtop" \
+               --width=500
+        return 1
+    fi
+
+    # Check for terminal emulators
+    local terminals=("gnome-terminal" "konsole" "xfce4-terminal" "xterm")
+    local selected_term=""
+    
+    for term in "${terminals[@]}"; do
+        if command -v "$term" >/dev/null 2>&1; then
+            selected_term="$term"
+            break
+        fi
+    done
+
+    if [ -z "$selected_term" ]; then
+        zenity --error --text="No terminal emulator found.\n\nPlease install one to run nvtop." \
+               --width=400
+        return 1
+    fi
+
+    # Run nvtop in the selected terminal
+    case "$selected_term" in
+        gnome-terminal|xfce4-terminal)
+            "$selected_term" -- bash -c "nvtop; exec bash" &
+            ;;
+        konsole)
+            konsole -e "bash -c 'nvtop; exec bash'" &
+            ;;
+        xterm)
+            xterm -e "bash -c 'nvtop; exec bash'" &
+            ;;
+    esac
+}
+
 # ----------------------- DaVinci Resolve Fix -------------------
 davinci_fix() {
     local davinci_dir="/opt/resolve/libs"
@@ -312,6 +352,7 @@ show_gui() {
             "NOUVEAU_BLACKLIST" "Blacklist Nouveau driver (often required for proprietary NVIDIA)" \
             "NOUVEAU_WHITELIST" "Whitelist Nouveau driver (revert script-created blacklist)" \
             "DAVINCI_FIX" "Apply DaVinci Resolve library fix (move bundled glib/gio libs to oldlibs/)" \
+            "NVTOP" "Run GPU monitoring tool (requires installation)" \
             "INFO" "Show system configuration details" \
             "REBOOT" "Reboot system to apply changes" \
             "EXIT" "Close the application" \
@@ -350,6 +391,9 @@ show_gui() {
                 ;;
             DAVINCI_FIX)
                 davinci_fix
+                ;;
+            NVTOP)
+                run_nvtop
                 ;;
             INFO)
                 show_system_info
@@ -399,4 +443,3 @@ if ! command -v update-initramfs >/dev/null 2>&1; then
 fi
 
 show_gui
-
