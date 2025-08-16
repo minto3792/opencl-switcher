@@ -6,7 +6,7 @@
 
 This script provides a **Zenity-based GUI** to manage OpenCL configurations on hybrid GPU systems with **AMD as the primary GPU** and **NVIDIA as the secondary GPU**. It's ideal for content creators and professionals who need to switch between GPU configurations for different workloads.
 
-![Main Menu Screenshot](https://github.com/minto3792/opencl-switcher/blob/f7b28e8b491b6623e08a858ab7c3c8505ca09b34/opencswitchgui.jpg)
+![Main Menu Screenshot](https://github.com/minto3792/opencl-switcher/blob/416d8e4e493de0b0c3c746c93f024a572c5d012f/screenshots/Main%20Menu.png)
 
 ## 🎯 Key Features
 
