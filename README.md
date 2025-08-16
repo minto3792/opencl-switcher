@@ -1,6 +1,3 @@
-Got it ✅ — here’s the **full updated README.md** with the new amendment giving credit to *TechMimic* and the open source community.
-
----
 
 # OpenCL Switcher GUI + DaVinci Resolve Fix
 
