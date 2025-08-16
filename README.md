@@ -118,11 +118,11 @@ What it does:
 
 ### Info Window (GPU & Driver Details)
 
-![Info Screenshot](screenshots/info.png)
+![Info Screenshot](https://github.com/minto3792/opencl-switcher/blob/b089791502d108c879c65c8a4b3353cd10a0247e/screenshots/info%20window.png)
 
 ### DaVinci Fix Confirmation
 
-![DaVinci Fix Screenshot](screenshots/davinci-fix.png)
+![DaVinci Fix Screenshot]([screenshots/davinci-fix.png](https://github.com/minto3792/opencl-switcher/blob/b089791502d108c879c65c8a4b3353cd10a0247e/screenshots/DaVinci%20Fix%20Confirmation.png))
 
 ---
 
