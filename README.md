@@ -152,7 +152,7 @@ What it does:
 
 ## 🙏 Credits
 
-* **[TechMimic YouTube Channel](https://www.youtube.com/@TechMimic)** → for originally sharing the **DaVinci Resolve fix** idea that inspired the `davinci_fix` function.
+* **[TechMimic YouTube Channel](https://www.youtube-nocookie.com/embed/kMpm9kQfiAI)** → for originally sharing the **DaVinci Resolve fix** idea that inspired the `davinci_fix` function.
 * **The Open Source Community** → for continuous effort, collaboration, and mutual support that make Linux GPU setups easier for everyone.
 * Everyone who shares fixes, scripts, and knowledge to help each other succeed. ❤️
 
