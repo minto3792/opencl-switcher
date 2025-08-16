@@ -1,3 +1,6 @@
+Got it ✅ — here’s the **full updated README.md** with the new amendment giving credit to *TechMimic* and the open source community.
+
+---
 
 # OpenCL Switcher GUI + DaVinci Resolve Fix
 
@@ -86,6 +89,7 @@ If not root, the script will relaunch using `pkexec` or `sudo`.
 * **NOUVEAU\_BLACKLIST** → Disable Nouveau (required for proprietary NVIDIA).
 * **NOUVEAU\_WHITELIST** → Re-enable Nouveau (remove script-created block).
 * **INFO** → Show GPU and driver versions.
+* **DAVINCI\_FIX** → Apply library compatibility fix for DaVinci Resolve.
 * **REBOOT** → Restart system to apply changes.
 * **EXIT** → Close the application.
 
@@ -109,6 +113,24 @@ What it does:
 
 ---
 
+## 🖼️ Screenshots
+
+### Main Menu
+
+![Main Menu Screenshot](screenshots/main-menu.png)
+
+### Info Window (GPU & Driver Details)
+
+![Info Screenshot](screenshots/info.png)
+
+### DaVinci Fix Confirmation
+
+![DaVinci Fix Screenshot](screenshots/davinci-fix.png)
+
+👉 *Tip: Create a `screenshots/` folder in your repo and save actual PNG screenshots there using `gnome-screenshot`, `spectacle`, or `flameshot`.*
+
+---
+
 ## 🧑‍💻 Development Notes
 
 * Logs are written to: `/tmp/opencl-switcher-gui.log`
@@ -128,6 +150,14 @@ What it does:
 
 ---
 
+## 🙏 Credits
+
+* **[TechMimic YouTube Channel](https://www.youtube.com/@TechMimic)** → for originally sharing the **DaVinci Resolve fix** idea that inspired the `davinci_fix` function.
+* **The Open Source Community** → for continuous effort, collaboration, and mutual support that make Linux GPU setups easier for everyone.
+* Everyone who shares fixes, scripts, and knowledge to help each other succeed. ❤️
+
+---
+
 ## 🤝 Contributions
 
 * Contributions are welcome under GPLv3+.
@@ -142,3 +172,6 @@ This is a **community tool**. No official vendor support. For issues:
 * Check `/tmp/opencl-switcher-gui.log`.
 * Open a GitHub issue with details.
 
+---
+
+👉 Do you also want me to add **links to community forums** (like Reddit’s r/linux, r/davinciresolve, or Phoronix forums) in the README under *Support* so users have more places to ask questions?
