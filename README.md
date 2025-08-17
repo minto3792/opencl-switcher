@@ -86,7 +86,7 @@ opencl-switcher
 ### For Content Creation (DaVinci Resolve)
 ```mermaid
 graph LR
-    A[OPENCL_CUDA] --> B[DAVINCI_FIX] --> C[REBOOT]
+    A[OPENCL_CUDA] --> B[DAVINCI_FIX] --> C[RESTART]
 ```
 
 ### For Gaming
